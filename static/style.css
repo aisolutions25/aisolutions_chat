@@ -1,0 +1,760 @@
+/* ===== BASE STYLES ===== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', sans-serif;
+}
+
+body {
+    background: #f5f5f5;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* ===== MAIN CONTAINER ===== */
+.container {
+    display: flex;
+    height: 100vh;
+    background: #ffffff;
+}
+
+/* ===== SIDEBAR ===== */
+.sidebar {
+    width: 260px;
+    background: #f7f7f7;
+    padding: 16px;
+    border-right: 1px solid #e5e5e5;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Sidebar header styling */
+.sidebar-header {
+    display: flex;
+    justify-content: flex-start; /* Align items to the left */
+    align-items: center;
+    margin-bottom: 16px;
+    gap: 8px; /* Add spacing between the button and heading */
+}
+
+.sidebar-header h2 {
+    font-size: 30px;
+    color: #444;
+    margin: 0;
+    padding-left: 60px; /* Shift the header 30px to the right */
+}
+
+.sidebar-header button {
+    order: -1; /* Ensure the button appears before the heading */
+    position: relative; /* Ensure the button remains visible when sidebar is hidden */
+    z-index: 10; /* Keep the button above other elements */
+    background: #10a37f;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.2s;
+}
+
+.sidebar-header button:hover {
+    background: #0d8a6a;
+}
+
+/* Hidden sidebar */
+.sidebar.hidden {
+    display: none; /* Hide the sidebar */
+}
+
+/* ===== NEW CHAT BUTTON ===== */
+.new-chat-btn {
+    background: #10a37f;
+    color: white;
+    padding: 8px 12px; /* Reduce padding for a smaller button */
+    border-radius: 8px;
+    cursor: pointer;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background 0.2s;
+    width: auto; /* Automatically adjust width based on content */
+    min-width: 120px; /* Optional: Set a minimum width for consistency */
+}
+
+.new-chat-btn:hover {
+    background: #0d8a6a;
+}
+
+.new-chat-btn svg {
+    stroke: white;
+    width: 50px; /* Slightly smaller icon size */
+    height: 20px;
+    transition: stroke 0.2s;
+}
+
+.new-chat-btn:hover svg {
+    stroke: #eafaf6; /* Slightly lighter color on hover */
+}
+
+.chat-history {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.history-item {
+    padding: 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: #444;
+}
+
+.history-item:hover {
+    background: #eaeaea;
+}
+
+.history-item svg {
+    stroke: #666;
+}
+
+.history-item.active {
+    background: #10a37f;
+    color: white;
+}
+
+.history-item.active svg {
+    stroke: white;
+}
+
+/* ===== MAIN CHAT AREA ===== */
+.main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: #ffffff;
+}
+
+.chat-container {
+    flex: 1;
+    padding: 24px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+/* ===== MESSAGE BUBBLES ===== */
+.message {
+    max-width: 1200px;
+    width: fit-content;
+    position: relative;
+}
+
+.message.user {
+    align-self: flex-end;
+}
+
+.message.bot {
+    align-self: flex-start;
+}
+
+.message-content {
+    padding: 16px;
+    line-height: 1.6;
+    font-size: 16px;
+    border-radius: 15px;
+    position: relative;
+}
+
+/* User message styling */
+.message.user .message-content {
+    background: #10a37f;
+    color: white;
+    border-radius: 15px 15px 0 15px;
+}
+
+/* Bot message styling */
+.message.bot .message-content {
+    background: #f0f0f0;
+    color: #333;
+    border-radius: 15px 15px 15px 0;
+}
+
+/* ===== PDF BUTTON STYLING ===== */
+.pdf-button {
+    position: absolute;
+    bottom: -8px;
+    right: -8px;
+    cursor: pointer;
+    padding: 6px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.message.user .pdf-button {
+    left: -8px;
+    right: auto;
+}
+
+.pdf-button:hover {
+    background: #10a37f;
+    transform: translateY(-2px);
+}
+
+.pdf-button:hover svg {
+    fill: white;
+}
+
+.pdf-button svg {
+    width: 16px;
+    height: 16px;
+    fill: #10a37f;
+    transition: fill 0.2s;
+}
+
+/* ===== READOUT BUTTON STYLING ===== */
+.readout-button {
+    position: absolute;
+    bottom: -8px;
+    right: 40px;
+    cursor: pointer;
+    padding: 6px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.readout-button:hover {
+    background: #10a37f;
+    transform: translateY(-2px);
+}
+
+.readout-button:hover svg {
+    stroke: white;
+}
+
+.readout-button svg {
+    width: 20px;
+    height: 20px;
+    stroke: #10a37f;
+    transition: stroke 0.2s;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+/* ===== TEXT FORMATTING (FOR CHAT & PDF) ===== */
+.message-content h1,
+.message-content h2,
+.message-content h3,
+.message-content h4 {
+    margin: 1em 0 0.5em 0;
+    line-height: 1.3;
+}
+
+.message-content h1 { 
+    font-size: 1.8em;
+    color: inherit;
+}
+
+.message-content h2 { 
+    font-size: 1.6em;
+    color: inherit;
+}
+
+.message-content h3 { 
+    font-size: 1.4em;
+    color: inherit;
+}
+
+.message-content h4 { 
+    font-size: 1.2em;
+    color: inherit;
+}
+
+.message-content strong {
+    font-weight: 700;
+    color: inherit;
+}
+
+.message-content em {
+    font-style: italic;
+}
+
+.message-content ul,
+.message-content ol {
+    padding-left: 2em;
+    margin: 1em 0;
+}
+
+.message-content li {
+    margin-bottom: 0.5em;
+    line-height: 1.6;
+}
+
+.message-content p {
+    margin-bottom: 1em;
+    line-height: 1.6;
+}
+
+.message-content code {
+    background-color: rgba(0,0,0,0.05);
+    padding: 0.2em 0.4em;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.9em;
+}
+
+.message-content pre {
+    background-color: rgba(0,0,0,0.05);
+    padding: 1em;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 1em 0;
+}
+
+.message-content pre code {
+    background-color: transparent;
+    padding: 0;
+    font-size: 0.9em;
+}
+
+/* ===== INPUT AREA ===== */
+/* Input container styling */
+.input-container {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    background: #ffffff;
+    border-top: 1px solid #e5e5e5;
+    gap: 8px;
+    position: relative; /* Ensure proper positioning of child elements */
+}
+
+/* Textarea styling */
+textarea#userInput {
+    flex: none; /* Disable flex behavior */
+    width: 500%; /* Increase the width to 300% */
+    resize: none;
+    border: 2px solid #e5e5e5;
+    border-radius: 8px;
+    padding: 8px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #333;
+    background: #f9f9f9;
+    outline: none;
+    overflow: hidden;
+    box-sizing: border-box;
+    height: 40px; /* Keep the height as is */
+}
+
+textarea#userInput:focus {
+    border-color: #10a37f;
+    background: #ffffff;
+}
+
+/* File upload button styling */
+.file-upload {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f0f0f0;
+    border: 1px solid #e5e5e5;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+    position: absolute;
+    right: 75px; /* Adjust position to the right of the textarea */
+}
+
+.file-upload:hover {
+    background: #10a37f;
+    border-color: #10a37f;
+}
+
+.file-upload svg {
+    width: 20px;
+    height: 20px;
+    stroke: black;
+    transition: stroke 0.2s;
+}
+
+.file-upload:hover svg {
+    stroke: white;
+}
+
+/* ===== VOICE INPUT BUTTON STYLING ===== */
+.voice-input {
+    position: absolute;
+    right: 110px; /* Adjusted to align just in front of the upload button */
+    bottom: 55px; /* Same vertical alignment as the file-upload button */
+}
+
+.voice-input button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f0f0f0;
+    border: 1px solid #e5e5e5;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.voice-input button svg {
+    width: 20px;
+    height: 20px;
+    fill: black; /* Default black fill for the microphone and stand */
+    stroke: black; /* Default black stroke for the stand */
+    transition: fill 0.2s;
+}
+
+.voice-input button:hover {
+    background: #10a37f;
+    border-color: #10a37f;
+}
+
+.voice-input button:hover svg {
+    fill: white; /* White fill on hover for both microphone and stand */
+    stroke: white; /* White stroke on hover for the stand */
+}
+
+.voice-input.active button {
+    background: #e74c3c;
+    border-color: #e74c3c;
+    animation: pulse 1s infinite;
+}
+
+.voice-input.active button svg {
+    fill: white; /* Entire logo turns white when active */
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+/* Send button styling */
+button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f0f0f0;
+    border: 1px solid #e5e5e5; /* Add border for consistency */
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    transition: all 0.2s; /* Ensure all properties transition smoothly */
+    position: absolute;
+    right: 20px; /* Adjust position to the right of the upload button */
+}
+
+button:hover {
+    background: #10a37f;
+    border-color: #10a37f; /* Match border color on hover */
+    transform: translateY(-2px); /* Add hover effect similar to others */
+}
+
+button svg {
+    width: 20px;
+    height: 20px;
+    fill: black; /* Default color */
+    transition: fill 0.2s;
+}
+
+button:hover svg {
+    fill: white; /* Turn white on hover */
+}
+
+.word.highlight {
+    background-color: #ffeb3b;
+    border-radius: 3px;
+    padding: 2px 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* ===== SCROLLBAR STYLING ===== */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* ===== PDF SPECIFIC STYLES ===== */
+@media print {
+    .pdf-content {
+        padding: 20px;
+        font-size: 12pt;
+    }
+    
+    .message-content {
+        border: none !important;
+        box-shadow: none !important;
+    }
+}
+
+/* ===== POPUP NOTIFICATION ===== */
+.popup {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #10a37f;
+    color: white;
+    padding: 12px 16px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    font-size: 25px;
+    z-index: 1000;
+    animation: fadeInOut 3s ease-in-out;
+}
+
+.popup.error {
+    background: #e74c3c;
+    color: white;
+}
+
+@keyframes fadeInOut {
+    0% { opacity: 0; transform: translateY(20px); }
+    10% { opacity: 1; transform: translateY(0); }
+    90% { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(20px); }
+}
+
+/* ===== SPINNER ===== */
+.spinner {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #10a37f;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    z-index: 1000;
+}
+
+.spinner.hidden {
+    display: none;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* ===== CONTEXT MENU ===== */
+.context-menu {
+    position: absolute;
+    background: white;
+    border: 1px solid #ddd;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    padding: 8px 0;
+    width: 120px;
+}
+
+.context-menu div {
+    padding: 8px 16px;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+    color: #10a37f; /* Default green color */
+}
+
+.context-menu div:hover {
+    background: #eafaf6; /* Light green background for hover */
+    color: #0d8a6a; /* Darker green for hover text */
+}
+
+.context-menu.hidden {
+    display: none;
+}
+
+.mathjax {
+    font-size: 1em;
+    line-height: 1.6;
+    color: #333;
+}
+
+.message {
+    position: relative;
+}
+
+.speech-highlight {
+    background-color: rgba(255, 235, 59, 0.3);
+    border-radius: 3px;
+    transition: all 0.2s ease;
+}
+
+/* ===== Chat Logo Styling ===== */
+.chat-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    border-radius: 8px;
+    background: #f0f0f0; /* Light background for the logo container */
+    transition: background 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+}
+
+.chat-info:hover {
+    background: #10a37f; /* Green background on hover */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Subtle shadow on hover */
+}
+
+.chat-info svg {
+    width: 24px;
+    height: 24px;
+    fill: #10a37f; /* Default green fill */
+    stroke: #10a37f; /* Default green stroke */
+    transition: fill 0.2s, stroke 0.2s;
+}
+
+.chat-info:hover svg {
+    fill: white; /* White fill on hover */
+    stroke: white; /* White stroke on hover */
+}
+
+.chat-info span {
+    font-size: 14px;
+    color: #444; /* Default text color */
+    transition: color 0.2s;
+}
+
+.chat-info:hover span {
+    color: white; /* White text on hover */
+}
+
+/* ===== ATTACHED FILES STYLING ===== */
+.attached-files {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 8px 0;
+    max-width: calc(100% - 160px);
+}
+
+.file-pill {
+    background: #eafaf6;
+    border: 1px solid #10a37f;
+    border-radius: 16px;
+    padding: 4px 12px;
+    font-size: 12px;
+    display: inline-flex; /* Inline with the chat bubble */
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px; /* Add spacing below the chat text */
+    max-width: 100%; /* Prevent overflow */
+    word-break: break-word; /* Handle long file names */
+}
+
+.file-pill svg {
+    width: 12px;
+    height: 12px;
+    stroke: #10a37f;
+}
+
+.remove-file {
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 50%;
+    transition: background 0.2s;
+}
+
+.remove-file:hover {
+    background: rgba(0,0,0,0.1);
+}
+/* ===== HIDE PANEL BUTTON ===== */
+#hidePanelButton {
+    position: fixed;
+    top: 10px;
+    left: 20px;
+    z-index: 1000;
+    padding: 10px;
+    background-color: #10a37f;
+    color: white;
+    border: none;
+    border-radius: 8px; /* Rectangular with rounded corners */
+    cursor: pointer;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 50px; /* Adjust width for rectangular shape */
+    height: 40px; /* Adjust height for rectangular shape */
+    transition: transform 0.3s, background-color 0.3s, box-shadow 0.3s;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Add subtle shadow */
+}
+
+#hidePanelButton:hover {
+    background-color: #0d8a6a;
+    transform: scale(1.05);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3); /* Enhance shadow on hover */
+}
+
+#hidePanelButton.active {
+    background-color: #444;
+    color: white;
+}
+
+/* Add an SVG arrow icon inside the button */
+#hidePanelButton svg {
+    width: 20px;
+    height: 20px;
+    fill: white; /* Default color for the arrow */
+    transition: transform 0.3s;
+}
+
+#hidePanelButton.active svg {
+    transform: rotate(180deg); /* Rotate the arrow for active state */
+}

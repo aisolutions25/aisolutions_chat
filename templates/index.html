@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Raj AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Hide Panel Button -->
+        <button id="hidePanelButton" onclick="toggleSidebar()">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20">
+                <path d="M18 18L6 12L18 6" /> <!-- Default left arrow -->
+            </svg>
+        </button>
+
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>AI Chat</h2>
+            </div>
+            <!-- New Chat Button -->
+            <div class="new-chat-btn" onclick="newChat()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="16"></line>
+                    <line x1="8" y1="12" x2="16" y2="12"></line>
+                </svg>
+                <span>New Chat</span>
+            </div>
+            <div class="chat-history" id="chatHistory">
+                <!-- Chat history items will be populated here -->
+            </div>
+        </div>
+
+        <!-- Main Chat Area -->
+        <div class="main-content">
+            <div class="chat-container" id="chatContainer">
+                <!-- Chat messages will be populated here -->
+            </div>
+            
+            <!-- Input Area -->
+            <div class="input-container">
+                <div class="input-box">
+                    <textarea id="userInput" placeholder="Ask me anything..." rows="1"></textarea>
+                </div>
+                <div class="file-upload">
+                    <input type="file" id="fileInput" hidden multiple />
+                    <label for="fileInput">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                        </svg>
+                    </label>
+                </div>
+                <div class="voice-input">
+                    <button id="micButton">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="black" stroke="none" width="24" height="24" class="mic-icon">
+                            <!-- Microphone body -->
+                            <path d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"></path>
+                            <!-- Microphone base -->
+                            <path d="M19 10a7 7 0 0 1-14 0"></path>
+                            <!-- Stand vertical line -->
+                            <path d="M12 17v5"></path>
+                            <!-- Stand horizontal base -->
+                            <path d="M9 22h6"></path>
+                        </svg>
+                    </button>
+                </div>
+                <button onclick="sendMessage()">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+                        <path fill="currentColor" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
+                    </svg>
+                </button>
+                <div class="attached-files" id="attachedFiles"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="loadingSpinner" class="spinner hidden"></div>
+    <div id="chatContextMenu" class="context-menu hidden">
+        <div onclick="renameChat()">Rename</div>
+        <div onclick="deleteChat()">Delete</div>
+    </div>
+
+    <script>
+        let currentChatId = 0;
+        let selectedChatId = null;
+        let currentUtterance = null;
+        let isSpeaking = false;
+        let currentWordIndex = -1;
+        let currentSpeech = {
+            utterance: null,
+            originalHTML: null,
+            messageElement: null
+        };
+        let attachedFiles = [];
+        let recognition = null;
+        let isRecording = false;
+
+        if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.continuous = true; // Enable continuous mode
+            recognition.interimResults = true; // Allow interim results
+            recognition.lang = 'en-US';
+
+            recognition.onresult = (event) => {
+                const transcript = Array.from(event.results)
+                    .map(result => result[0])
+                    .map(result => result.transcript)
+                    .join('');
+                document.getElementById('userInput').value = transcript;
+            };
+
+            recognition.onerror = (event) => {
+                console.error('Speech recognition error:', event.error);
+                showPopup(`Speech error: ${event.error}`, true);
+                toggleMic(false);
+            };
+
+            recognition.onend = () => {
+                if (isRecording) {
+                    // Restart recognition if the mic is still active
+                    recognition.start();
+                } else {
+                    toggleMic(false);
+                }
+            };
+        } else {
+            console.warn('Speech recognition not supported');
+        }
+
+        document.getElementById('micButton').addEventListener('click', () => {
+            if (!isRecording) {
+                startVoiceRecognition();
+            } else {
+                stopVoiceRecognition();
+            }
+        });
+
+        document.getElementById('fileInput').addEventListener('change', async function(e) {
+            const files = Array.from(e.target.files);
+            const formData = new FormData();
+            formData.append('chat_id', currentChatId);
+            
+            for (const file of files) {
+                formData.append('file', file);
+            }
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                if (data.error) throw new Error(data.error);
+                
+                // Update UI with file names
+                files.forEach(file => {
+                    addFilePill(file.name);
+                });
+                
+                showPopup(`Attached ${files.length} file(s)`, false);
+            } catch (error) {
+                showPopup(`Upload failed: ${error.message}`, true);
+            }
+        });
+
+        function addFilePill(filename) {
+            const filePill = document.createElement('div');
+            filePill.className = 'file-pill';
+            filePill.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+                    <path d="M13 2v7h7"/>
+                </svg>
+                <span>${filename}</span>
+                <div class="remove-file" onclick="this.parentElement.remove()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                </div>
+            `;
+            document.getElementById('attachedFiles').appendChild(filePill);
+        }
+
+        document.getElementById('userInput').addEventListener('input', function () {
+            this.style.height = 'auto'; // Reset height to auto to calculate the new height
+            this.style.height = `${this.scrollHeight}px`; // Set height based on scrollHeight
+        });
+
+        function toggleSpinner(show) {
+            const spinner = document.getElementById('loadingSpinner');
+            spinner.classList.toggle('hidden', !show);
+        }
+
+        async function newChat() {
+            try {
+                // Save current chat if it has content
+                if (document.getElementById('chatContainer').children.length > 0) {
+                    const messages = Array.from(document.querySelectorAll('.message .message-content'));
+                    const chatContent = messages.map(msg => msg.outerHTML).join('');
+                    
+                    await fetch('/save_pdf', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            chat_id: currentChatId,
+                            content: chatContent,
+                            is_full_chat: true
+                        })
+                    });
+                }
+                
+                // Create new chat
+                const response = await fetch('/new_chat', { method: 'POST' });
+                const data = await response.json();
+                currentChatId = data.chat_id;
+                document.getElementById('chatContainer').innerHTML = '';
+                addHistoryItem(currentChatId); // Add a placeholder for the new chat
+            } catch (error) {
+                console.error('Error creating new chat:', error);
+            }
+        }
+
+        function addHistoryItem(chatId, firstQuestion = '') {
+            const historyItem = document.createElement('div');
+            historyItem.className = 'history-item';
+            historyItem.dataset.chatId = chatId;
+
+            const chatName = firstQuestion
+                ? firstQuestion.slice(0, 20) + (firstQuestion.length > 20 ? '...' : '')
+                : `Chat ${chatId}`;
+
+            historyItem.innerHTML = `
+                <div class="chat-info">
+                    <!-- Updated chat logo with the provided speech bubble -->
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#10a37f" stroke="#10a37f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 3h18v12H8l-5 5V3z"></path>
+                        <line x1="7" y1="8" x2="17" y2="8"></line>
+                        <line x1="7" y1="11" x2="14" y2="11"></line>
+                    </svg>
+                    <span>${chatName}</span>
+                </div>
+                <div class="chat-menu" onclick="showChatMenu(event, ${chatId})">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="1"/>
+                        <circle cx="12" cy="5" r="1"/>
+                        <circle cx="12" cy="19" r="1"/>
+                    </svg>
+                </div>
+            `;
+            
+            historyItem.onclick = (e) => {
+                if (!e.target.closest('.chat-menu')) loadChat(chatId);
+            };
+            document.getElementById('chatHistory').appendChild(historyItem);
+        }
+
+        function highlightActiveChat(chatId) {
+            document.querySelectorAll('.history-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            const activeItem = document.querySelector(`.history-item[data-chat-id="${chatId}"]`);
+            if (activeItem) {
+                activeItem.classList.add('active');
+            }
+        }
+
+        async function loadChat(chatId) {
+            try {
+                const response = await fetch('/get_chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chat_id: chatId })
+                });
+                const data = await response.json();
+                if (data.error) {
+                    console.error(data.error);
+                    return;
+                }
+                currentChatId = data.chat_id;
+                const chatContainer = document.getElementById('chatContainer');
+                chatContainer.innerHTML = '';
+                data.messages.forEach(msg => {
+                    appendMessage(msg.question, true);
+                    appendMessage(msg.answer, false);
+                });
+
+                // Highlight the active chat in the history
+                highlightActiveChat(chatId);
+            } catch (error) {
+                console.error('Error loading chat:', error);
+            }
+        }
+
+        function appendMessage(message, isUser) {
+            const chatContainer = document.getElementById('chatContainer');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user' : 'bot'}`;
+            
+            const cleanHTML = isUser ? message : DOMPurify.sanitize(message);
+            
+            let pdfButton = '';
+            let readoutButton = '';
+            if (!isUser) {
+                pdfButton = `
+                    <div class="pdf-button" onclick="saveAnswerAsPDF(${currentChatId}, this)">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                            <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+                        </svg>
+                    </div>
+                `;
+                readoutButton = `
+                    <!-- Updated read out loud button -->
+                    <div class="readout-button" onclick="readOutMessage(this)">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 9v6h4l5 5V4L7 9H3z"></path>
+                            <path d="M16 7h0"></path>
+                            <path d="M16 12h0"></path>
+                            <path d="M16 17h0"></path>
+                        </svg>
+                    </div>
+                `;
+            }
+
+            const buttonsHTML = pdfButton + readoutButton;
+            messageDiv.dataset.buttons = buttonsHTML; // Store buttons for preservation
+
+            messageDiv.innerHTML = `
+                <div class="message-content">${cleanHTML}</div>
+                ${buttonsHTML}
+            `;
+
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function readOutMessage(element) {
+            const messageDiv = element.closest('.message');
+            const messageContent = messageDiv.querySelector('.message-content');
+            
+            // Toggle speech
+            if (currentSpeech.utterance && window.speechSynthesis.speaking) {
+                window.speechSynthesis.cancel();
+                if (currentSpeech.overlay) currentSpeech.overlay.remove();
+                currentSpeech = { utterance: null, overlay: null, messageElement: null };
+                return;
+            }
+
+            // Store references
+            currentSpeech.messageElement = messageContent;
+            const textContent = messageContent.textContent;
+            currentSpeech.utterance = new SpeechSynthesisUtterance(textContent);
+
+            // Create overlay
+            currentSpeech.overlay = document.createElement('div');
+            Object.assign(currentSpeech.overlay.style, {
+                position: 'absolute',
+                zIndex: '1000',
+                pointerEvents: 'none',
+                backgroundColor: 'rgba(255, 235, 59, 0.3)',
+                borderRadius: '3px',
+                transition: 'all 0.2s ease',
+                display: 'none'
+            });
+            
+            messageDiv.appendChild(currentSpeech.overlay);
+
+            currentSpeech.utterance.onboundary = (event) => {
+                if (event.name === 'word') {
+                    const range = document.createRange();
+                    const textNode = messageContent.childNodes[0];
+                    
+                    if (!textNode || textNode.nodeType !== Node.TEXT_NODE) return;
+                    
+                    try {
+                        range.setStart(textNode, event.charIndex);
+                        range.setEnd(textNode, event.charIndex + event.charLength);
+                        
+                        const rect = range.getBoundingClientRect();
+                        const messageRect = messageContent.getBoundingClientRect();
+                        
+                        Object.assign(currentSpeech.overlay.style, {
+                            display: 'block',
+                            width: `${rect.width}px`,
+                            height: `${rect.height}px`,
+                            transform: `translate(${rect.left - messageRect.left}px, 
+                                        ${rect.top - messageRect.top + window.scrollY}px)`
+                        });
+                        
+                        // Smooth scrolling
+                        messageDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    } catch (e) {
+                        console.log('Word boundary error:', e);
+                    }
+                }
+            };
+
+            currentSpeech.utterance.onend = currentSpeech.utterance.onerror = () => {
+                currentSpeech.overlay.remove();
+                currentSpeech = { utterance: null, overlay: null, messageElement: null };
+            };
+
+            window.speechSynthesis.speak(currentSpeech.utterance);
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('userInput');
+            const question = input.value.trim();
+            const fileInput = document.getElementById('fileInput');
+            const files = fileInput.files;
+
+            if (!question && files.length === 0) return;
+
+            // Turn off the microphone if it's active
+            stopVoiceRecognition();
+
+            // Create FormData to handle files+text
+            const formData = new FormData();
+            formData.append('question', question);
+            formData.append('chat_id', currentChatId);
+            
+            // Add files to FormData
+            for (const file of files) {
+                formData.append('files', file);
+            }
+
+            // Clear input and files immediately after sending
+            input.value = '';
+            fileInput.value = '';
+            document.getElementById('attachedFiles').innerHTML = '';
+
+            // Display user message with file attachments
+            appendMessageWithFiles(question, files, true);
+            
+            toggleSpinner(true);
+            
+            try {
+                const response = await fetch('/ask', {
+                    method: 'POST',
+                    body: formData // No Content-Type header needed for FormData
+                });
+
+                const data = await response.json();
+                appendMessage(data.answer, false);
+
+                // Update chat history
+                const chatHistoryItem = document.querySelector(`.history-item[data-chat-id="${currentChatId}"]`);
+                if (!chatHistoryItem) {
+                    addHistoryItem(currentChatId, question);
+                } else {
+                    const chatName = question.slice(0, 20) + (question.length > 20 ? '...' : '');
+                    chatHistoryItem.querySelector('span').textContent = chatName;
+                }
+            } catch (error) {
+                console.error('Error sending message:', error);
+                appendMessage('Error: Could not get response', false);
+            } finally {
+                toggleSpinner(false);
+            }
+        }
+
+        function appendMessageWithFiles(message, files, isUser) {
+            const chatContainer = document.getElementById('chatContainer');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user' : 'bot'}`;
+            
+            // Add file attachments
+            let fileHTML = '';
+            if (files.length > 0) {
+                fileHTML += '<div class="attached-files">';
+                Array.from(files).forEach(file => {
+                    fileHTML += `
+                        <div class="file-pill">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+                                <path d="M13 2v7h7"/>
+                            </svg>
+                            <span>${file.name}</span>
+                        </div>
+                    `;
+                });
+                fileHTML += '</div>';
+            }
+
+            messageDiv.innerHTML = `
+                <div class="message-content">
+                    ${message}
+                    ${fileHTML}
+                </div>
+            `;
+
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        async function saveAnswerAsPDF(chatId, element) {
+            try {
+                const messageContent = element.closest('.message').querySelector('.message-content');
+                const clonedContent = messageContent.cloneNode(true);
+                
+                // Remove interactive elements
+                clonedContent.querySelectorAll('button, .pdf-button, .readout-button').forEach(el => el.remove());
+                
+                const response = await fetch('/save_pdf', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        chat_id: chatId,
+                        content: clonedContent.outerHTML,
+                        is_full_chat: false
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'PDF generation failed');
+                }
+
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Chat_${chatId}_${new Date().toISOString().slice(0,10)}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            } catch (error) {
+                console.error('PDF save error:', error);
+                showPopup(`Error: ${error.message}`, true);
+            }
+        }
+
+        // Enter key support
+        document.getElementById('userInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        document.addEventListener('contextmenu', (e) => {
+            const chatItem = e.target.closest('.history-item');
+            if (chatItem) {
+                e.preventDefault();
+                selectedChatId = chatItem.dataset.chatId;
+
+                const contextMenu = document.getElementById('chatContextMenu');
+                contextMenu.style.top = `${e.clientY}px`;
+                contextMenu.style.left = `${e.clientX}px`;
+                contextMenu.classList.remove('hidden');
+            }
+        });
+
+        document.addEventListener('click', () => {
+            const contextMenu = document.getElementById('chatContextMenu');
+            contextMenu.classList.add('hidden');
+        });
+
+        function showChatMenu(event, chatId) {
+            event.stopPropagation();
+            selectedChatId = chatId;
+
+            const menu = document.getElementById('chatContextMenu');
+            menu.style.top = `${event.clientY}px`;
+            menu.style.left = `${event.clientX}px`;
+            menu.classList.remove('hidden');
+        }
+
+        function renameChat() {
+            const newName = prompt('Enter a new name for the chat:');
+            if (newName) {
+                const chatItem = document.querySelector(`.history-item[data-chat-id="${selectedChatId}"]`);
+                if (chatItem) {
+                    chatItem.querySelector('span').textContent = newName;
+
+                    // Optionally, update the server with the new name
+                    fetch('/rename_chat', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ chat_id: selectedChatId, new_name: newName })
+                    }).catch((error) => console.error('Error renaming chat:', error));
+                }
+            }
+        }
+
+        function deleteChat() {
+            if (confirm('Are you sure you want to delete this chat?')) {
+                const chatItem = document.querySelector(`.history-item[data-chat-id="${selectedChatId}"]`);
+                if (chatItem) {
+                    chatItem.remove();
+
+                    // Optionally, delete the chat from the server
+                    fetch('/delete_chat', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ chat_id: selectedChatId })
+                    }).catch((error) => console.error('Error deleting chat:', error));
+                }
+            }
+        }
+
+        function startVoiceRecognition() {
+            if (!recognition) {
+                showPopup('Speech recognition is not supported in your browser', true);
+                return;
+            }
+
+            let inactivityTimeout; // Variable to track inactivity timeout
+
+            const resetInactivityTimeout = () => {
+                // Clear the existing timeout and set a new one
+                clearTimeout(inactivityTimeout);
+                inactivityTimeout = setTimeout(() => {
+                    stopVoiceRecognition(); // Stop recognition after 20 seconds of inactivity
+                    showPopup('Microphone turned off due to inactivity.', true);
+                }, 10000); // 20 seconds
+            };
+
+            try {
+                recognition.start();
+                toggleMic(true);
+                const inputBox = document.getElementById('userInput');
+                inputBox.placeholder = 'Listening...';
+
+                let finalTranscript = ''; // Store the final transcript
+
+                resetInactivityTimeout(); // Start the inactivity timer
+
+                recognition.onresult = (event) => {
+                    resetInactivityTimeout(); // Reset the timer on every result
+
+                    let interimTranscript = ''; // Store interim results
+
+                    for (let i = event.resultIndex; i < event.results.length; i++) {
+                        const transcript = event.results[i][0].transcript;
+
+                        if (event.results[i].isFinal) {
+                            finalTranscript = transcript.trim(); // Replace finalTranscript with the latest final result
+                        } else {
+                            interimTranscript += transcript.trim() + ' '; // Append interim results
+                        }
+                    }
+
+                    // Update the input box with the combined transcript
+                    inputBox.value = finalTranscript + interimTranscript;
+                };
+
+                recognition.onerror = (event) => {
+                    console.error('Speech recognition error:', event.error);
+                    showPopup(`Speech error: ${event.error}`, true);
+                    toggleMic(false);
+                    clearTimeout(inactivityTimeout); // Clear the timeout on error
+                };
+
+                recognition.onend = () => {
+                    clearTimeout(inactivityTimeout); // Clear the timeout when recognition ends
+                    if (isRecording) {
+                        // Restart recognition if the mic is still active
+                        recognition.start();
+                        resetInactivityTimeout(); // Restart the inactivity timer
+                    } else {
+                        toggleMic(false);
+                        inputBox.placeholder = 'Ask me anything...';
+                    }
+                };
+            } catch (err) {
+                showPopup('Error accessing microphone. Please check permissions.', true);
+                toggleMic(false);
+                clearTimeout(inactivityTimeout); // Clear the timeout on error
+            }
+        }
+
+        function stopVoiceRecognition() {
+            if (recognition) {
+                recognition.stop();
+            }
+            toggleMic(false);
+            document.getElementById('userInput').placeholder = 'Ask me anything...';
+        }
+
+        function toggleMic(active) {
+            isRecording = active;
+            const micButton = document.getElementById('micButton');
+            micButton.parentElement.classList.toggle('active', active);
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.querySelector('.sidebar');
+            const hidePanelButton = document.getElementById('hidePanelButton');
+            const svgPath = hidePanelButton.querySelector('svg path');
+
+            sidebar.classList.toggle('hidden');
+
+            if (sidebar.classList.contains('hidden')) {
+                // Change the SVG path to a right arrow (>)
+                svgPath.setAttribute('d', 'M6 18L18 12L6 6'); // Right arrow path
+            } else {
+                // Change the SVG path to a left arrow (<)
+                svgPath.setAttribute('d', 'M18 18L6 12L18 6'); // Left arrow path
+            }
+        }
+    </script>
+</body>
+</html>
