@@ -343,8 +343,8 @@
         function readOutMessage(element) {
             const messageDiv = element.closest('.message');
             const messageContent = messageDiv.querySelector('.message-content');
-            
-            // Toggle speech
+
+            // Cancel current speech if already speaking
             if (currentSpeech.utterance && window.speechSynthesis.speaking) {
                 window.speechSynthesis.cancel();
                 if (currentSpeech.overlay) currentSpeech.overlay.remove();
@@ -352,14 +352,31 @@
                 return;
             }
 
-            // Store references
-            currentSpeech.messageElement = messageContent;
             const textContent = messageContent.textContent;
-            currentSpeech.utterance = new SpeechSynthesisUtterance(textContent);
+            const utterance = new SpeechSynthesisUtterance(textContent);
 
-            // Create overlay
-            currentSpeech.overlay = document.createElement('div');
-            Object.assign(currentSpeech.overlay.style, {
+            // Try to use a consistent voice (Google US English preferred)
+            const preferredVoiceName = "Google US English";
+
+            const assignVoice = () => {
+                const voices = window.speechSynthesis.getVoices();
+                const selected = voices.find(v => v.name.includes(preferredVoiceName)) || voices[0];
+                utterance.voice = selected;
+                speakWithOverlay(utterance, messageContent, messageDiv);
+            };
+
+            // Ensure voices are loaded before assigning
+            if (window.speechSynthesis.getVoices().length === 0) {
+                window.speechSynthesis.onvoiceschanged = assignVoice;
+            } else {
+                assignVoice();
+            }
+        }
+
+        function speakWithOverlay(utterance, messageContent, messageDiv) {
+            // Create overlay highlight
+            const overlay = document.createElement('div');
+            Object.assign(overlay.style, {
                 position: 'absolute',
                 zIndex: '1000',
                 pointerEvents: 'none',
@@ -368,32 +385,27 @@
                 transition: 'all 0.2s ease',
                 display: 'none'
             });
-            
-            messageDiv.appendChild(currentSpeech.overlay);
+            messageDiv.appendChild(overlay);
 
-            currentSpeech.utterance.onboundary = (event) => {
+            utterance.onboundary = (event) => {
                 if (event.name === 'word') {
                     const range = document.createRange();
                     const textNode = messageContent.childNodes[0];
-                    
                     if (!textNode || textNode.nodeType !== Node.TEXT_NODE) return;
-                    
                     try {
                         range.setStart(textNode, event.charIndex);
                         range.setEnd(textNode, event.charIndex + event.charLength);
-                        
+
                         const rect = range.getBoundingClientRect();
                         const messageRect = messageContent.getBoundingClientRect();
-                        
-                        Object.assign(currentSpeech.overlay.style, {
+
+                        Object.assign(overlay.style, {
                             display: 'block',
                             width: `${rect.width}px`,
                             height: `${rect.height}px`,
                             transform: `translate(${rect.left - messageRect.left}px, 
-                                        ${rect.top - messageRect.top + window.scrollY}px)`
+                                                ${rect.top - messageRect.top + window.scrollY}px)`
                         });
-                        
-                        // Smooth scrolling
                         messageDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     } catch (e) {
                         console.log('Word boundary error:', e);
@@ -401,12 +413,18 @@
                 }
             };
 
-            currentSpeech.utterance.onend = currentSpeech.utterance.onerror = () => {
-                currentSpeech.overlay.remove();
+            utterance.onend = utterance.onerror = () => {
+                overlay.remove();
                 currentSpeech = { utterance: null, overlay: null, messageElement: null };
             };
 
-            window.speechSynthesis.speak(currentSpeech.utterance);
+            currentSpeech = {
+                utterance,
+                overlay,
+                messageElement: messageContent
+            };
+
+            window.speechSynthesis.speak(utterance);
         }
 
         async function sendMessage() {
