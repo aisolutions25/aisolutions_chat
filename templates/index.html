@@ -99,6 +99,16 @@
         let recognition = null;
         let isRecording = false;
 
+        // Initialize voices and load them when available
+        let voices = [];
+
+        window.speechSynthesis.onvoiceschanged = () => {
+            voices = window.speechSynthesis.getVoices();
+        };
+
+        // Initial load if voices are already ready
+        voices = window.speechSynthesis.getVoices();
+
         if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             recognition = new SpeechRecognition();
@@ -343,8 +353,8 @@
         function readOutMessage(element) {
             const messageDiv = element.closest('.message');
             const messageContent = messageDiv.querySelector('.message-content');
-
-            // Cancel current speech if already speaking
+            
+            // Toggle speech
             if (currentSpeech.utterance && window.speechSynthesis.speaking) {
                 window.speechSynthesis.cancel();
                 if (currentSpeech.overlay) currentSpeech.overlay.remove();
@@ -352,31 +362,31 @@
                 return;
             }
 
+            // Store references
+            currentSpeech.messageElement = messageContent;
             const textContent = messageContent.textContent;
-            const utterance = new SpeechSynthesisUtterance(textContent);
+            currentSpeech.utterance = new SpeechSynthesisUtterance(textContent);
 
-            // Try to use a consistent voice (Google US English preferred)
-            const preferredVoiceName = "Google US English";
-
-            const assignVoice = () => {
-                const voices = window.speechSynthesis.getVoices();
-                const selected = voices.find(v => v.name.includes(preferredVoiceName)) || voices[0];
-                utterance.voice = selected;
-                speakWithOverlay(utterance, messageContent, messageDiv);
-            };
-
-            // Ensure voices are loaded before assigning
-            if (window.speechSynthesis.getVoices().length === 0) {
-                window.speechSynthesis.onvoiceschanged = assignVoice;
+            // Set preferred voice (modify the name to match available voices)
+            const desiredVoiceName = 'Google UK English Female'; // Example voice name
+            const desiredVoice = voices.find(voice => voice.name === desiredVoiceName);
+            if (desiredVoice) {
+                currentSpeech.utterance.voice = desiredVoice;
+                currentSpeech.utterance.lang = desiredVoice.lang; // Set language to match voice
             } else {
-                assignVoice();
+                // Fallback to default voice if preferred not found
+                console.warn('Preferred voice not found, using default');
+                currentSpeech.utterance.lang = 'en-US';
             }
-        }
 
-        function speakWithOverlay(utterance, messageContent, messageDiv) {
-            // Create overlay highlight
-            const overlay = document.createElement('div');
-            Object.assign(overlay.style, {
+            // Set additional speech parameters for consistency
+            currentSpeech.utterance.rate = 1.0;    // Speaking rate
+            currentSpeech.utterance.pitch = 1.0;   // Pitch level
+            currentSpeech.utterance.volume = 1.0;  // Volume level
+
+            // Create overlay
+            currentSpeech.overlay = document.createElement('div');
+            Object.assign(currentSpeech.overlay.style, {
                 position: 'absolute',
                 zIndex: '1000',
                 pointerEvents: 'none',
@@ -385,27 +395,32 @@
                 transition: 'all 0.2s ease',
                 display: 'none'
             });
-            messageDiv.appendChild(overlay);
+            
+            messageDiv.appendChild(currentSpeech.overlay);
 
-            utterance.onboundary = (event) => {
+            currentSpeech.utterance.onboundary = (event) => {
                 if (event.name === 'word') {
                     const range = document.createRange();
                     const textNode = messageContent.childNodes[0];
+                    
                     if (!textNode || textNode.nodeType !== Node.TEXT_NODE) return;
+                    
                     try {
                         range.setStart(textNode, event.charIndex);
                         range.setEnd(textNode, event.charIndex + event.charLength);
-
+                        
                         const rect = range.getBoundingClientRect();
                         const messageRect = messageContent.getBoundingClientRect();
-
-                        Object.assign(overlay.style, {
+                        
+                        Object.assign(currentSpeech.overlay.style, {
                             display: 'block',
                             width: `${rect.width}px`,
                             height: `${rect.height}px`,
                             transform: `translate(${rect.left - messageRect.left}px, 
-                                                ${rect.top - messageRect.top + window.scrollY}px)`
+                                        ${rect.top - messageRect.top + window.scrollY}px)`
                         });
+                        
+                        // Smooth scrolling
                         messageDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     } catch (e) {
                         console.log('Word boundary error:', e);
@@ -413,18 +428,12 @@
                 }
             };
 
-            utterance.onend = utterance.onerror = () => {
-                overlay.remove();
+            currentSpeech.utterance.onend = currentSpeech.utterance.onerror = () => {
+                currentSpeech.overlay.remove();
                 currentSpeech = { utterance: null, overlay: null, messageElement: null };
             };
 
-            currentSpeech = {
-                utterance,
-                overlay,
-                messageElement: messageContent
-            };
-
-            window.speechSynthesis.speak(utterance);
+            window.speechSynthesis.speak(currentSpeech.utterance);
         }
 
         async function sendMessage() {
