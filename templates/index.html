@@ -41,6 +41,19 @@
                 <!-- Chat messages will be populated here -->
             </div>
             
+            <!-- Add this above the input container -->
+            <div class="file-popup" id="filePopup">
+                <div class="file-popup-header">
+                    <span class="file-popup-title">Attached Files</span>
+                    <div class="close-popup" onclick="closeFilePopup()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M18 6L6 18M6 6l12 12"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="attached-files" id="popupFiles"></div>
+            </div>
+
             <!-- Input Area -->
             <div class="input-container">
                 <div class="input-box">
@@ -99,16 +112,6 @@
         let recognition = null;
         let isRecording = false;
 
-        // Initialize voices and load them when available
-        let voices = [];
-
-        window.speechSynthesis.onvoiceschanged = () => {
-            voices = window.speechSynthesis.getVoices();
-        };
-
-        // Initial load if voices are already ready
-        voices = window.speechSynthesis.getVoices();
-
         if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             recognition = new SpeechRecognition();
@@ -150,6 +153,36 @@
             }
         });
 
+        // Add these new functions
+        function showFilePopup() {
+            const popup = document.getElementById('filePopup');
+            popup.style.display = 'block';
+        }
+
+        function closeFilePopup() {
+            const popup = document.getElementById('filePopup');
+            popup.style.display = 'none';
+        }
+
+        // Modify the file input event listener
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const files = Array.from(e.target.files);
+            const popupFilesContainer = document.getElementById('popupFiles');
+            
+            // Clear existing files
+            popupFilesContainer.innerHTML = '';
+            
+            // Add new files
+            files.forEach(file => {
+                addFilePill(file, popupFilesContainer);
+            });
+            
+            // Show the popup if files are added
+            if (files.length > 0) {
+                showFilePopup();
+            }
+        });
+
         document.getElementById('fileInput').addEventListener('change', async function(e) {
             const files = Array.from(e.target.files);
             const formData = new FormData();
@@ -179,7 +212,8 @@
             }
         });
 
-        function addFilePill(filename) {
+        // Modified addFilePill function
+        function addFilePill(file, container) {
             const filePill = document.createElement('div');
             filePill.className = 'file-pill';
             filePill.innerHTML = `
@@ -187,14 +221,14 @@
                     <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
                     <path d="M13 2v7h7"/>
                 </svg>
-                <span>${filename}</span>
+                <span>${file.name}</span>
                 <div class="remove-file" onclick="this.parentElement.remove()">
                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M18 6L6 18M6 6l12 12"/>
                     </svg>
                 </div>
             `;
-            document.getElementById('attachedFiles').appendChild(filePill);
+            container.appendChild(filePill);
         }
 
         document.getElementById('userInput').addEventListener('input', function () {
@@ -367,23 +401,6 @@
             const textContent = messageContent.textContent;
             currentSpeech.utterance = new SpeechSynthesisUtterance(textContent);
 
-            // Set preferred voice (modify the name to match available voices)
-            const desiredVoiceName = 'Google UK English Female'; // Example voice name
-            const desiredVoice = voices.find(voice => voice.name === desiredVoiceName);
-            if (desiredVoice) {
-                currentSpeech.utterance.voice = desiredVoice;
-                currentSpeech.utterance.lang = desiredVoice.lang; // Set language to match voice
-            } else {
-                // Fallback to default voice if preferred not found
-                console.warn('Preferred voice not found, using default');
-                currentSpeech.utterance.lang = 'en-US';
-            }
-
-            // Set additional speech parameters for consistency
-            currentSpeech.utterance.rate = 1.0;    // Speaking rate
-            currentSpeech.utterance.pitch = 1.0;   // Pitch level
-            currentSpeech.utterance.volume = 1.0;  // Volume level
-
             // Create overlay
             currentSpeech.overlay = document.createElement('div');
             Object.assign(currentSpeech.overlay.style, {
@@ -439,8 +456,7 @@
         async function sendMessage() {
             const input = document.getElementById('userInput');
             const question = input.value.trim();
-            const fileInput = document.getElementById('fileInput');
-            const files = fileInput.files;
+            const files = Array.from(document.getElementById('fileInput').files);
 
             if (!question && files.length === 0) return;
 
@@ -457,13 +473,14 @@
                 formData.append('files', file);
             }
 
-            // Clear input and files immediately after sending
-            input.value = '';
-            fileInput.value = '';
-            document.getElementById('attachedFiles').innerHTML = '';
-
             // Display user message with file attachments
             appendMessageWithFiles(question, files, true);
+
+            // Clear input and files
+            input.value = '';
+            document.getElementById('fileInput').value = '';
+            document.getElementById('popupFiles').innerHTML = '';
+            closeFilePopup();
             
             toggleSpinner(true);
             
@@ -490,6 +507,40 @@
             } finally {
                 toggleSpinner(false);
             }
+        }
+
+        function createMessageElement(content, files, isUser) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user' : 'bot'}`;
+
+            const fileHTML = files.map(file => {
+                return `
+                <div class="file-pill">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+                        <path d="M13 2v7h7"/>
+                    </svg>
+                    <span>${file.name}</span>
+                </div>
+                `;
+            }).join('');
+
+            messageDiv.innerHTML = `
+                <div class="message-content">
+                    ${content}
+                    ${files.length > 0 ? `<div class="attached-files">${fileHTML}</div>` : ''}
+                </div>
+                ${!isUser ? `
+                    <div class="pdf-button" onclick="saveAnswerAsPDF(${currentChatId}, this)">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+                            <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                            <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+                        </svg>
+                    </div>
+                ` : ''}
+            `;
+
+            return messageDiv;
         }
 
         function appendMessageWithFiles(message, files, isUser) {
