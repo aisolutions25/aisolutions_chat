@@ -758,3 +758,76 @@ button:hover svg {
 #hidePanelButton.active svg {
     transform: rotate(180deg); /* Rotate the arrow for active state */
 }
+
+/* ===== FILE SELECTION POPUP ===== */
+.file-popup {
+    position: absolute;
+    bottom: 70px;
+    left: 275px;
+    right: 200px;
+    background: white;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    display: none;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.file-popup-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.file-popup-title {
+    font-weight: 600;
+    color: #444;
+}
+
+.close-popup {
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 50%;
+    transition: background 0.2s;
+}
+
+.close-popup:hover {
+    background: #f0f0f0;
+}
+
+.message-text {
+    margin-bottom: 8px;
+    word-break: break-word;
+}
+
+.message .attached-files {
+    display: flex;
+    flex-direction: row !important;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.message .file-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    background: #f8f8f8;
+    border: 2px solid #10a37f;
+    border-radius: 16px;
+    margin: 2px 0;
+    gap: 6px;
+    white-space: nowrap;
+    overflow-x: auto; /* enable scroll if needed */
+    max-width: 100%;
+    min-width: fit-content; /* dynamically grow to fit content */
+}
+
+.message .file-pill span {
+    color: #333;
+    font-weight: 500;
+}
